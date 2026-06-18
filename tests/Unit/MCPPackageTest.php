@@ -25,7 +25,6 @@ class MCPPackageTest extends Unit
     {
         $container = new Container();
         $this->mcpPackage->addToContainer($container);
-
         $this->assertTrue($container->has(Server::class));
     }
 }
