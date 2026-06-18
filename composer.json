@@ -1,0 +1,33 @@
+{
+    "name": "boneframework/mcp",
+    "description": "MCP for Bone Framework",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Derek Satephen McLean",
+            "email": "delboy1978uk@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "boneframework/contracts": "^v1.0"
+    },
+    "require-dev":{
+        "delboy1978uk/dev-tools": "^1.0.5"
+    },
+    "autoload":{
+        "psr-4":{
+            "Bone\\MCP\\": "src/"
+        }
+    },
+    "autoload-dev":{
+        "psr-4":{
+            "Tests\\Bone\\MCP\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "phpro/grumphp": false
+        }
+    }
+}

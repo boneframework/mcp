@@ -1,0 +1,14 @@
+tools:
+    external_code_coverage: true
+build:
+    image: default-bionic
+    environment:
+        php: 8.2.3
+    nodes:
+        analysis:
+            tests:
+                override:
+                    - php-scrutinizer-run
+filter:
+    paths:
+        - src/*
