@@ -1,52 +1,42 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Bone\DebugBar;
+namespace Bone\MCP;
 
 use Barnacle\Container;
 use Barnacle\RegistrationInterface;
-use Bone\Contracts\Container\ContainerInterface;
-use Bone\DebugBar\View\Extension\DebugBarExtension;
-use Bone\View\ViewRegistrationInterface;
-use DebugBar\DataCollector\PDO\PDOCollector;
-use DebugBar\DataCollector\PDO\TraceablePDO;
-use Del\Booty\AssetRegistrationInterface;
-use Doctrine\ORM\EntityManagerInterface;
-use Slam\DbalDebugstackMiddleware\DebugStack;
-use Slam\DbalDebugstackMiddleware\Middleware;
+use Bone\Router\Router;
+use Bone\Router\RouterConfigInterface;
+use PhpMcp\Server\Server;           // or the equivalent from dtyq/php-mcp
+use PhpMcp\Server\Transport\HttpTransport; // adjust based on chosen library
 
-class MCPPackage implements RegistrationInterface, ViewRegistrationInterface, AssetRegistrationInterface
+class McpPackage implements RegistrationInterface, RouterConfigInterface
 {
-    public function addToContainer(ContainerInterface $c): void
+    public function addToContainer(Container $c): void
     {
-        $debugStack = new DebugStack();
-        $debugMiddleware = new Middleware($debugStack);
-        /** @var EntityManagerInterface $entityManager */
-        $entityManager = $c->get(EntityManagerInterface::class);
-        $entityManager->getConfiguration()->setMiddlewares([$debugMiddleware]);
-        /** @var \PDO $connection */
-        $connection = $entityManager->getConnection()->getNativeConnection();
-        $pdo = new TraceablePDO($connection);
-        $debugBar = new DebugBar();
-        $debugBar->addCollector(new PDOCollector($pdo));
-        $c[DebugBar::class] = $debugBar;
+        // Register the MCP Server
+        $c[Server::class] = $c->factory(function (Container $c) {
+            $server = Server::make()
+                ->withServerInfo('My Bone MCP Server', '1.0.0')
+                ->withCapabilities(tools: true, resources: true, prompts: true)
+                ->build();
+
+            // Register your tool classes here (attribute discovery)
+            // $server->registerToolClass(ExampleTools::class);
+
+            return $server;
+        });
     }
 
-    public function addViews(): array
+    public function addRoutes(Container $c, Router $router): Router
     {
-        return [];
-    }
+        // Main MCP endpoint - this is the standard
+        $router->map(['POST', 'GET'], '/mcp', function ($request) use ($c) {
+            $server = $c->get(Server::class);
+            $transport = new HttpTransport();   // or StreamableHttpTransport etc.
 
-    public function addViewExtensions(Container $c): array
-    {
-        $debugBar = $c->get(DebugBar::class);
+            return $transport->handle($request, $server);
+        });
 
-        return [new DebugBarExtension($debugBar)];
-    }
-
-    public function getAssetFolders(): array
-    {
-        return ['debug-bar' => __DIR__ . '/../../../maximebf/debugbar/src/DebugBar/Resources'];
+        return $router;
     }
 }

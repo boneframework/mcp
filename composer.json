@@ -29,7 +29,8 @@
     },
     "config": {
         "allow-plugins": {
-            "phpro/grumphp": false
+            "phpro/grumphp": false,
+            "php-http/discovery": true
         }
     }
 }
