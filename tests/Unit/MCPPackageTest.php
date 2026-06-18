@@ -2,7 +2,7 @@
 
 namespace Tests\Bone\MCP;
 
-use Bone\MCP\McpPackage;
+use Bone\MCP\MCPPackage;
 use Barnacle\Container;
 use Codeception\Test\Unit;
 use Mcp\Server;
@@ -13,7 +13,7 @@ class MCPPackageTest extends Unit
 
     protected function _before()
     {
-        $this->mcpPackage = new McpPackage();
+        $this->mcpPackage = new MCPPackage();
     }
 
     protected function _after()
