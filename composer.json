@@ -10,7 +10,8 @@
     ],
     "require": {
         "php": "^8.2",
-        "boneframework/contracts": "^v1.0"
+        "boneframework/contracts": "^v1.0",
+        "mcp/sdk": "^0.6.0"
     },
     "require-dev":{
         "delboy1978uk/dev-tools": "^1.0.5"
