@@ -1,18 +1,19 @@
 <?php
 
-namespace Tests\Bone\DebugBar;
+namespace Tests\Bone\MCP;
 
 use Bone\Contracts\Container\ContainerInterface;
-use Bone\DebugBar\MCPPackage;
+use Bone\MCP\McpPackage;
+use Barnacle\Container;
 use Codeception\Test\Unit;
 
 class MCPPackageTest extends Unit
 {
-    protected MCPPackage $mcpPackage;
+    protected McpPackage $mcpPackage;
 
     protected function _before()
     {
-        $this->mcpPackage = new MCPPackage();
+        $this->mcpPackage = new McpPackage();
     }
 
     protected function _after()
@@ -20,10 +21,11 @@ class MCPPackageTest extends Unit
         unset($this->mcpPackage);
     }
 
-    public function testBlah()
+    public function testAddToContainer()
     {
-        $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('addToContainer');
-        $this->mcpPackage->addToContainer();
+        $container = new Container();
+        $this->mcpPackage->addToContainer($container);
+
+        $this->assertTrue($container->has(\Mcp\Server\Server::class));
     }
 }
