@@ -2,10 +2,10 @@
 
 namespace Tests\Bone\MCP;
 
-use Bone\Contracts\Container\ContainerInterface;
 use Bone\MCP\McpPackage;
 use Barnacle\Container;
 use Codeception\Test\Unit;
+use Mcp\Server;
 
 class MCPPackageTest extends Unit
 {
@@ -26,6 +26,6 @@ class MCPPackageTest extends Unit
         $container = new Container();
         $this->mcpPackage->addToContainer($container);
 
-        $this->assertTrue($container->has(\Mcp\Server\Server::class));
+        $this->assertTrue($container->has(Server::class));
     }
 }

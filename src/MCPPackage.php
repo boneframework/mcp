@@ -6,11 +6,11 @@ use Barnacle\Container;
 use Barnacle\RegistrationInterface;
 use Bone\Router\Router;
 use Bone\Router\RouterConfigInterface;
-use Mcp\Server\Server;
+use Mcp\Server;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Psr\Http\Message\ServerRequestInterface;
 
-class McpPackage implements RegistrationInterface, RouterConfigInterface
+class MCPPackage implements RegistrationInterface, RouterConfigInterface
 {
     public function addToContainer(Container $c): void
     {
@@ -25,6 +25,7 @@ class McpPackage implements RegistrationInterface, RouterConfigInterface
     public function addRoutes(Container $c, Router $router): Router
     {
         $router->map(['POST'], '/mcp', function (ServerRequestInterface $request) use ($c) {
+            /** @var Server $server */
             $server = $c->get(Server::class);
             $transport = new StreamableHttpTransport($request);
 
