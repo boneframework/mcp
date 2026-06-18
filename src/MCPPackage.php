@@ -6,7 +6,7 @@ use Barnacle\Container;
 use Barnacle\RegistrationInterface;
 use Bone\Router\Router;
 use Bone\Router\RouterConfigInterface;
-use Mcp\Server\Server;
+use Mcp\Server;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Psr\Http\Message\ServerRequestInterface;
 
