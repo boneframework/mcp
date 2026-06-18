@@ -24,7 +24,7 @@ class MCPPackage implements RegistrationInterface, RouterConfigInterface
 
     public function addRoutes(Container $c, Router $router): Router
     {
-        $router->map(['POST'], '/mcp', function (ServerRequestInterface $request) use ($c) {
+        $router->map('POST', '/mcp', function (ServerRequestInterface $request) use ($c) {
             /** @var Server $server */
             $server = $c->get(Server::class);
             $transport = new StreamableHttpTransport($request);
