@@ -25,8 +25,11 @@ class McpConfig
     public readonly array $discoveryExcludeDirs;
     public readonly string $sessionDirectory;
     public readonly int $sessionTtl;
+    public readonly float $sessionLockTimeout;
     /** @var list<string> */
     public readonly array $allowedHosts;
+    /** @var list<string> */
+    public readonly array $allowedOrigins;
     /** @var list<string|MiddlewareInterface> */
     public readonly array $middleware;
 
@@ -48,7 +51,9 @@ class McpConfig
         $this->discoveryExcludeDirs = array_values((array) ($discovery['exclude_dirs'] ?? []));
         $this->sessionDirectory = $this->resolve($appRoot, (string) ($session['directory'] ?? 'data/cache/mcp-sessions'));
         $this->sessionTtl = (int) ($session['ttl'] ?? 3600);
+        $this->sessionLockTimeout = (float) ($session['lock_timeout'] ?? 30);
         $this->allowedHosts = array_values(array_map('strval', (array) ($config['allowed_hosts'] ?? self::DEFAULT_ALLOWED_HOSTS)));
+        $this->allowedOrigins = array_values(array_map('strval', (array) ($config['allowed_origins'] ?? [])));
         $this->middleware = array_values((array) ($config['middleware'] ?? []));
     }
 

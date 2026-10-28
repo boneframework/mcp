@@ -9,6 +9,7 @@ use Barnacle\RegistrationInterface;
 use Bone\Router\Router;
 use Bone\Router\RouterConfigInterface;
 use Mcp\Server;
+use Mcp\Server\Session\FileSessionLock;
 use Mcp\Server\Session\FileSessionStore;
 use Mcp\Server\Transport\Http\Middleware\CorsMiddleware;
 use Mcp\Server\Transport\Http\Middleware\DnsRebindingProtectionMiddleware;
@@ -38,20 +39,15 @@ class MCPPackage implements RegistrationInterface, RouterConfigInterface
                 ->setServerInfo($config->serverName, $config->serverVersion)
                 ->setInstructions($config->instructions)
                 ->setContainer($c)
-                ->setSession(new FileSessionStore($config->sessionDirectory, $config->sessionTtl));
+                ->setSession(new FileSessionStore($config->sessionDirectory, $config->sessionTtl))
+                // concurrent requests on one session run one at a time, each with its own response
+                ->setSessionLock(new FileSessionLock($config->sessionDirectory, $config->sessionLockTimeout));
 
             if (is_dir($config->discoveryBasePath)) {
                 $builder->setDiscovery($config->discoveryBasePath, $config->discoveryScanDirs, $config->discoveryExcludeDirs);
             }
 
             return $builder->build();
-        });
-
-        $c[SessionLock::class] = $c->factory(function (Container $c) {
-            /** @var McpConfig $config */
-            $config = $c->get(McpConfig::class);
-
-            return new SessionLock($config->sessionDirectory);
         });
     }
 
@@ -78,15 +74,11 @@ class MCPPackage implements RegistrationInterface, RouterConfigInterface
             $server = $c->get(Server::class);
             $transport = new StreamableHttpTransport($request, middleware: [
                 new CorsMiddleware(),
-                new DnsRebindingProtectionMiddleware($config->allowedHosts),
+                new DnsRebindingProtectionMiddleware(allowedHosts: $config->allowedHosts, allowedOrigins: $config->allowedOrigins),
                 new ProtocolVersionMiddleware(),
             ]);
 
-            /** @var SessionLock $lock */
-            $lock = $c->get(SessionLock::class);
-            $sessionId = $request->getHeaderLine(StreamableHttpTransport::SESSION_HEADER);
-
-            return $lock->synchronized($sessionId === '' ? null : $sessionId, fn () => $server->run($transport));
+            return $server->run($transport);
         };
 
         foreach (['GET', 'POST', 'DELETE'] as $method) {

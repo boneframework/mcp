@@ -104,7 +104,9 @@ class MCPPackageTest extends Unit
         self::assertSame([], $config->discoveryExcludeDirs);
         self::assertSame('/app/data/cache/mcp-sessions', $config->sessionDirectory);
         self::assertSame(3600, $config->sessionTtl);
+        self::assertSame(30.0, $config->sessionLockTimeout);
         self::assertSame(McpConfig::DEFAULT_ALLOWED_HOSTS, $config->allowedHosts);
+        self::assertSame([], $config->allowedOrigins);
         self::assertSame([], $config->middleware);
     }
 
@@ -116,8 +118,9 @@ class MCPPackageTest extends Unit
             'server_version' => '2.0.0',
             'instructions' => 'Browse first',
             'discovery' => ['base_path' => '/abs/src', 'scan_dirs' => ['Tools'], 'exclude_dirs' => ['Tools/Old']],
-            'session' => ['directory' => 'var/sessions', 'ttl' => 60],
+            'session' => ['directory' => 'var/sessions', 'ttl' => 60, 'lock_timeout' => 5],
             'allowed_hosts' => ['example.com'],
+            'allowed_origins' => ['https://app.example.com'],
             'middleware' => ['AuthMiddleware'],
         ], '/app/');
 
@@ -130,7 +133,9 @@ class MCPPackageTest extends Unit
         self::assertSame(['Tools/Old'], $config->discoveryExcludeDirs);
         self::assertSame('/app/var/sessions', $config->sessionDirectory);
         self::assertSame(60, $config->sessionTtl);
+        self::assertSame(5.0, $config->sessionLockTimeout);
         self::assertSame(['example.com'], $config->allowedHosts);
+        self::assertSame(['https://app.example.com'], $config->allowedOrigins);
         self::assertSame(['AuthMiddleware'], $config->middleware);
     }
 
@@ -264,6 +269,9 @@ class MCPPackageTest extends Unit
             self::assertSame($id, $body['id']);
             self::assertSame('Hello caller ' . $id, $body['result']['structuredContent']['greeting']);
         }
+
+        // the SDK's FileSessionLock is configured: one lock file per session next to the session
+        self::assertFileExists($this->sessionDir . '/' . $sessionId . '.lock');
     }
 
     public function testSessionLock(): void
@@ -315,6 +323,16 @@ class MCPPackageTest extends Unit
     {
         $this->expectException(\RuntimeException::class);
         (new SessionLock($this->sessionDir . '/missing'))->synchronized('0198e5a2-7b1c-7c3d-8e4f-5a6b7c8d9e0f', fn () => null);
+    }
+
+    public function testCrossOriginRequestsNeedAnAllowedOrigin(): void
+    {
+        $ping = fn (array $mcp) => $this->handler($this->container($mcp))(
+            $this->request(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->withHeader('Origin', 'https://app.example.com')
+        );
+
+        self::assertSame(403, $ping([])->getStatusCode());
+        self::assertNotSame(403, $ping(['allowed_origins' => ['https://app.example.com']])->getStatusCode());
     }
 
     public function testUnknownHostIsRejected(): void

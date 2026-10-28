@@ -55,10 +55,14 @@ return [
         'session' => [
             'directory' => 'data/cache/mcp-sessions',
             'ttl' => 3600,
+            'lock_timeout' => 30, // seconds a request waits for another request on its session (then 503)
         ],
 
-        // Host / Origin headers accepted by the DNS rebinding protection (no ports)
+        // Host headers accepted by the DNS rebinding protection (no ports)
         'allowed_hosts' => ['localhost', '127.0.0.1', '[::1]'],
+
+        // cross-origin callers (browsers send Origin), e.g. 'https://app.example.com'; same-origin is always allowed
+        'allowed_origins' => [],
 
         // PSR-15 middleware applied to the endpoint: container ids/class names or instances
         'middleware' => [],
@@ -78,6 +82,9 @@ require a Bearer token like this:
 If you serve the app on a hostname other than localhost, add it to `allowed_hosts`, e.g.
 `'allowed_hosts' => ['localhost', $_ENV['DOMAIN_NAME']]`, or every request gets
 `403 Forbidden: Invalid Host header.`
+
+Server-side clients send no `Origin` header. Browser-based clients on another origin must be
+listed in `allowed_origins` (scheme, host and port), or they get `403`.
 
 ## Writing tools
 
@@ -149,15 +156,13 @@ Note that `clientInfo.version` must be a non-empty string other than `"0"`.
 
 ### Concurrent requests
 
-Clients may send several requests on one session at once (e.g. parallel tool calls). The SDK
-keeps each session, including its queue of outgoing replies, in one file that every request
-loads and saves, so overlapping requests would overwrite each other's replies. The package
-therefore holds an exclusive lock per session (`<session id>.lock` next to the session files,
-via `flock`) while a request is handled: requests on the same session run one at a time and each
-gets its own response, while different sessions still run in parallel. The session directory
-must be on a filesystem that supports `flock` (local disks and Docker volumes do; some network
-filesystems don't). Lock files are removed by the session store's garbage collection once idle
-for longer than the session TTL.
+Clients may send several requests on one session at once (e.g. parallel tool calls). The package
+configures the SDK's per-session lock (`Mcp\Server\Session\FileSessionLock`, `flock` on
+`<session id>.lock` next to the session files): requests on the same session run one at a time
+and each gets its own response, while different sessions still run in parallel. A request that
+waits longer than `session.lock_timeout` is answered with `503`. The session directory must be on
+a filesystem that supports `flock` (local disks and Docker volumes do; some network filesystems
+don't). The session store's garbage collection removes lock files of expired sessions.
 
 ## Development
 

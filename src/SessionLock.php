@@ -9,6 +9,9 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Serialises requests on one MCP session across PHP processes.
  *
+ * @deprecated since 1.1.0: mcp/sdk 0.9 locks sessions itself (`FileSessionLock`), which
+ *             MCPPackage configures. Kept for code that used it directly; removed in 2.0.
+ *
  * The SDK loads the session file, handles the message, queues the reply in the session and
  * saves it. Two overlapping requests on one session would each save their own copy, and the
  * last save wins: the other reply is lost (an empty 202) or returned to the wrong request.
