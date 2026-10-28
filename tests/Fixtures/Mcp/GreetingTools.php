@@ -18,15 +18,17 @@ class GreetingTools
     /**
      * Greet someone on behalf of the calling OAuth client.
      *
-     * @param string $name who to greet
+     * @param string $name    who to greet
+     * @param int    $delayMs pause before answering, to overlap concurrent requests in tests
      * @return array<string, string|null>
      */
     #[McpTool(name: 'greet')]
-    public function greet(string $name): array
+    public function greet(string $name, int $delayMs = 0): array
     {
         if ($name === '') {
             throw new ToolCallException('name is required');
         }
+        usleep($delayMs * 1000);
 
         return ['greeting' => 'Hello ' . $name, 'client' => $this->context->getClientId()];
     }

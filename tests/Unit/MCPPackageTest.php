@@ -8,6 +8,7 @@ use Barnacle\Container;
 use Bone\MCP\McpConfig;
 use Bone\MCP\MCPPackage;
 use Bone\MCP\RequestContext;
+use Bone\MCP\SessionLock;
 use Bone\Router\Router;
 use Codeception\Test\Unit;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -18,6 +19,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Symfony\Component\Uid\Uuid;
 use Tests\Bone\MCP\Fixtures\Mcp\GreetingTools;
 
 class MCPPackageTest extends Unit
@@ -233,6 +235,86 @@ class MCPPackageTest extends Unit
             $this->request(['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list'], $sessionId)
         );
         self::assertGreaterThanOrEqual(400, $response->getStatusCode());
+    }
+
+    public function testConcurrentRequestsOnOneSessionEachGetTheirOwnResponse(): void
+    {
+        $sessionId = $this->initialize($this->handler($this->container()))->getHeaderLine('Mcp-Session-Id');
+        $this->handler($this->container())($this->request(['jsonrpc' => '2.0', 'method' => 'notifications/initialized'], $sessionId));
+
+        // separate PHP processes, as under PHP-FPM; each call holds the session for 300ms
+        $processes = [];
+        foreach (range(10, 14) as $id) {
+            $message = json_encode(['jsonrpc' => '2.0', 'id' => $id, 'method' => 'tools/call', 'params' => ['name' => 'greet', 'arguments' => ['name' => 'caller ' . $id, 'delayMs' => 300]]]);
+            $command = [PHP_BINARY, dirname(__DIR__) . '/Fixtures/call.php', $this->sessionDir, $sessionId, $message];
+            $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            self::assertIsResource($process);
+            $processes[$id] = [$process, $pipes];
+        }
+
+        foreach ($processes as $id => [$process, $pipes]) {
+            $output = stream_get_contents($pipes[1]);
+            $errors = stream_get_contents($pipes[2]);
+            proc_close($process);
+
+            $response = json_decode((string) $output, true);
+            self::assertIsArray($response, 'Request ' . $id . ' printed: ' . $output . $errors);
+            self::assertSame(200, $response['status'], 'Request ' . $id . ' got ' . $output);
+            $body = json_decode($response['body'], true);
+            self::assertSame($id, $body['id']);
+            self::assertSame('Hello caller ' . $id, $body['result']['structuredContent']['greeting']);
+        }
+    }
+
+    public function testSessionLock(): void
+    {
+        mkdir($this->sessionDir);
+        $lock = new SessionLock($this->sessionDir . '/');
+        $sessionId = '0198e5a2-7b1c-7c3d-8e4f-5a6b7c8d9e0f';
+
+        self::assertSame('unlocked', $lock->synchronized(null, fn () => 'unlocked'));
+        self::assertSame('not a uuid', $lock->synchronized('../../etc/passwd', fn () => 'not a uuid'));
+        self::assertSame([], glob($this->sessionDir . '/*'));
+
+        $path = $lock->pathFor(Uuid::fromString($sessionId));
+        self::assertSame($this->sessionDir . '/' . $sessionId . '.lock', $path);
+        self::assertSame('locked', $lock->synchronized(strtoupper($sessionId), function () use ($path) {
+            // held exclusively: a second, non-blocking lock attempt fails
+            $other = fopen($path, 'c');
+            $acquired = flock($other, LOCK_EX | LOCK_NB);
+            fclose($other);
+            self::assertFalse($acquired);
+
+            return 'locked';
+        }));
+
+        $other = fopen($path, 'c');
+        self::assertTrue(flock($other, LOCK_EX | LOCK_NB), 'released afterwards');
+        fclose($other);
+    }
+
+    public function testSessionLockReleasesWhenWorkThrows(): void
+    {
+        mkdir($this->sessionDir);
+        $lock = new SessionLock($this->sessionDir);
+        $sessionId = '0198e5a2-7b1c-7c3d-8e4f-5a6b7c8d9e0f';
+
+        try {
+            $lock->synchronized($sessionId, fn () => throw new \LogicException('boom'));
+            self::fail('Expected the exception to propagate');
+        } catch (\LogicException $e) {
+            self::assertSame('boom', $e->getMessage());
+        }
+
+        $other = fopen($lock->pathFor(Uuid::fromString($sessionId)), 'c');
+        self::assertTrue(flock($other, LOCK_EX | LOCK_NB));
+        fclose($other);
+    }
+
+    public function testSessionLockNeedsAWritableDirectory(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        (new SessionLock($this->sessionDir . '/missing'))->synchronized('0198e5a2-7b1c-7c3d-8e4f-5a6b7c8d9e0f', fn () => null);
     }
 
     public function testUnknownHostIsRejected(): void

@@ -46,6 +46,13 @@ class MCPPackage implements RegistrationInterface, RouterConfigInterface
 
             return $builder->build();
         });
+
+        $c[SessionLock::class] = $c->factory(function (Container $c) {
+            /** @var McpConfig $config */
+            $config = $c->get(McpConfig::class);
+
+            return new SessionLock($config->sessionDirectory);
+        });
     }
 
     public function addRoutes(Container $c, Router $router): Router
@@ -75,7 +82,11 @@ class MCPPackage implements RegistrationInterface, RouterConfigInterface
                 new ProtocolVersionMiddleware(),
             ]);
 
-            return $server->run($transport);
+            /** @var SessionLock $lock */
+            $lock = $c->get(SessionLock::class);
+            $sessionId = $request->getHeaderLine(StreamableHttpTransport::SESSION_HEADER);
+
+            return $lock->synchronized($sessionId === '' ? null : $sessionId, fn () => $server->run($transport));
         };
 
         foreach (['GET', 'POST', 'DELETE'] as $method) {

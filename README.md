@@ -147,6 +147,18 @@ Authorization: Bearer <token>
 
 Note that `clientInfo.version` must be a non-empty string other than `"0"`.
 
+### Concurrent requests
+
+Clients may send several requests on one session at once (e.g. parallel tool calls). The SDK
+keeps each session, including its queue of outgoing replies, in one file that every request
+loads and saves, so overlapping requests would overwrite each other's replies. The package
+therefore holds an exclusive lock per session (`<session id>.lock` next to the session files,
+via `flock`) while a request is handled: requests on the same session run one at a time and each
+gets its own response, while different sessions still run in parallel. The session directory
+must be on a filesystem that supports `flock` (local disks and Docker volumes do; some network
+filesystems don't). Lock files are removed by the session store's garbage collection once idle
+for longer than the session TTL.
+
 ## Development
 
 ### Running Tests
