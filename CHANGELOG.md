@@ -1,6 +1,8 @@
 # Changelog
 
-## 1.1.0
+## 1.0.2
+
+> Although a patch release, this moves `mcp/sdk` across two minor versions with breaking changes. Apps requiring `^1.0` get it on their next `composer update`; check the upgrade notes below against your tool classes.
 
 - Require `mcp/sdk` ^0.9.0 (from ^0.6.0), which fixes GHSA-7m52-jw36-44r3 / CVE-2026-53965 (fixed upstream in 0.7.1).
 - Sessions are locked by the SDK's `FileSessionLock`, configured by the package. New option `session.lock_timeout` (default 30 seconds; a request that waits longer gets `503`).
